@@ -5,4 +5,6 @@ metadata:
 data:
   producer-topic: topic-01
   producer-client-id: test-producer-client
-  producer-bootstrap-servers:  localhost:9092, localhost:9093, localhost:9094
+  producer-bootstrap-servers:  localhost:9092, localhost:9093, localhost:9094, 192.168.49.2:30615
+  producer-acks: "0"
+  producer-sleep-ms: "0"

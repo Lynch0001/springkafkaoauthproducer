@@ -29,20 +29,24 @@ public class ProducerService {
   private static String topic = null;
   private static String clientId = null;
   private static String clientSecret = null;
+  private static Long sleepTimeMs = null;
+  private static String acks = null;
+
   public ProducerService(){}
 
   public void produce(){
 
     try (final KubernetesClient client = new KubernetesClientBuilder().build()){
-      // topic, client_id, bootstrap
+      // topic, client_id, bootstrap, acks, sleepMs
       ConfigMap configMap = client.configMaps().inNamespace("default").withName("producer-configmap").get();
       topic = configMap.getData().get("producer-topic");
       clientId = configMap.getData().get("producer-client-id");
       bootstrapServers = configMap.getData().get("producer-bootstrap-servers");
+      sleepTimeMs = Long.valueOf(configMap.getData().get("producer-sleep-ms"));
+      acks = configMap.getData().get("producer-acks");
       // client_secret
       Secret secret = client.secrets().inNamespace("default").withName("producer-secret").get();
       String clientSecretEncoded = secret.getData().get("producer-client-secret");
-
       clientSecret = new String(Base64.getDecoder().decode(clientSecretEncoded));
     } catch (KubernetesClientException kce){
       // log exception
@@ -55,7 +59,7 @@ public class ProducerService {
     //  Set KEYCLOAK_HOST to connect to Keycloak host other than 'keycloak'
     //  Use 'keycloak.host' system property or KEYCLOAK_HOST env variable
 
-    final String keycloakHost = external.getValue("keycloak.host", "localhost");
+    final String keycloakHost = external.getValue("localhost", "localhost");
     final String realm = external.getValue("realm", "kafka");
     final String tokenEndpointUri = "http://" + keycloakHost + ":8080/realms/" + realm + "/protocol/openid-connect/token";
 
@@ -112,11 +116,11 @@ public class ProducerService {
         }
       }
 
-//      try {
-//        Thread.sleep(20000);
-//      } catch (InterruptedException e) {
-//        throw new RuntimeException("Interrupted while sleeping!");
-//      }
+      try {
+        Thread.sleep(sleepTimeMs);
+      } catch (InterruptedException e) {
+        throw new RuntimeException("Interrupted while sleeping!");
+      }
 
     } // end for loop
   } // end method
@@ -141,9 +145,10 @@ public class ProducerService {
 
     Properties p = new Properties();
 
-    p.setProperty("security.protocol", "SASL_PLAINTEXT");
+    p.setProperty("security.protocol", "SASL_SSL");
     p.setProperty("sasl.mechanism", "OAUTHBEARER");
-    p.setProperty("sasl.jaas.config", "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule sufficient ;" );
+
+    p.setProperty("sasl.jaas.config", "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required ;");
 //            "login.id=" +
 //            "debug=\"true\" " +
 //            "OAUTH_LOGIN_SERVER=\"localhost:8080\" " +
@@ -155,12 +160,20 @@ public class ProducerService {
 //            "OAUTH_INTROSPECT_ENDPOINT='/realms/kafka/protocol/openid-connect/token/introspect' " +
 //            "OAUTH_INTROSPECT_AUTHORIZATION='Basic test-producer-client:4fvZCpeXAM6dTT14W8hGfuviNM8u5Kud';");
     p.setProperty("sasl.login.callback.handler.class", "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler");
-
     p.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     p.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     p.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    System.out.println("[producer_acks]: " + acks);
+    p.setProperty(ProducerConfig.ACKS_CONFIG, acks);
+    //p.setProperty(Config.OAUTH_SCOPE, "client_credentials");
 
-    p.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+    // TrustStore
+    String trustStoreLocation = "";
+    p.setProperty(Config.OAUTH_SSL_TRUSTSTORE_LOCATION, trustStoreLocation);
+    String trustStoreType = "";
+    p.setProperty(Config.OAUTH_SSL_TRUSTSTORE_TYPE, trustStoreType);
+    String trustStorePassword = "";
+    p.setProperty(Config.OAUTH_SSL_TRUSTSTORE_PASSWORD, trustStorePassword);
 
     // Adjust re-authentication options
     // See: strimzi-kafka-oauth/README.md
