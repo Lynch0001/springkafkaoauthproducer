@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.example</groupId>
-    <artifactId>springkafkaoauth</artifactId>
+    <artifactId>springkafkaoauthproducer</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>springkafkaoauth</name>
-    <description>springkafkaoauth</description>
+    <name>springkafkaoauthproducer</name>
+    <description>springkafkaoauthproducer</description>
     <properties>
         <java.version>11</java.version>
     </properties>
